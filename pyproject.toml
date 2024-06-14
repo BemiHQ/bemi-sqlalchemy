@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bemi-sqlalchemy"
+version = "0.0.1"
+authors = [
+  { name="Evgeny Li", email="evgeny@bemi.io" },
+]
+description = "Automatic data change tracking for SQLAlchemy"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development",
+    "Topic :: Database",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+]
+dependencies = [
+    "alembic",
+    "sqlalchemy",
+    "typing-extensions>=4.8.0",
+]
+license = { file = "LICENSE" }
+
+[project.urls]
+Homepage = "https://github.com/BemiHQ/bemi-sqlalchemy"
+Issues = "https://github.com/BemiHQ/bemi-sqlalchemy/issues"
+Documentation = "https://docs.bemi.io/orms/sqlalchemy"
