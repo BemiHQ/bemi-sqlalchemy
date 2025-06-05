@@ -64,6 +64,11 @@ class Bemi:
                             current_tablename, current_tablename
                         );
                         END LOOP;
+                    EXCEPTION
+                        WHEN insufficient_privilege THEN
+                            RAISE NOTICE 'Skipping table % due to insufficient privilege', current_tablename;
+                        WHEN others THEN
+                            RAISE NOTICE 'Skipping table % due to unexpected error: %', current_tablename, SQLERRM;
                     END;
                     $$ LANGUAGE plpgsql;
 
