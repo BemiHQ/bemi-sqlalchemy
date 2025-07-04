@@ -30,7 +30,7 @@ class Bemi:
         conn.execute(
             text(
                 """
-                    CREATE OR REPLACE FUNCTION _bemi_row_trigger_func()
+                    CREATE OR REPLACE FUNCTION public._bemi_row_trigger_func()
                         RETURNS TRIGGER
                     AS $$
                     DECLARE
@@ -38,51 +38,60 @@ class Bemi:
                     BEGIN
                         SELECT split_part(split_part(current_query(), '/*Bemi ', 2), ' Bemi*/', 1) INTO _bemi_metadata;
                         IF _bemi_metadata <> '' THEN
-                        PERFORM pg_logical_emit_message(true, '_bemi', _bemi_metadata);
+                            PERFORM pg_logical_emit_message(true, '_bemi', _bemi_metadata);
                         END IF;
 
                         IF (TG_OP = 'DELETE') THEN
-                        RETURN OLD;
+                            RETURN OLD;
                         ELSE
-                        RETURN NEW;
+                            RETURN NEW;
                         END IF;
                     END;
-                    $$ LANGUAGE plpgsql;
+                    $$ LANGUAGE plpgsql
+                    SET search_path = '';
 
-                    CREATE OR REPLACE PROCEDURE _bemi_create_triggers()
+                    CREATE OR REPLACE PROCEDURE public._bemi_create_triggers()
                     AS $$
                     DECLARE
+                        current_schemaname TEXT;
                         current_tablename TEXT;
                     BEGIN
-                        FOR current_tablename IN
-                        SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+                        FOR current_schemaname, current_tablename IN
+                            SELECT schemaname, tablename FROM pg_tables
+                            LEFT JOIN information_schema.triggers ON tablename = event_object_table AND schemaname = trigger_schema AND trigger_name LIKE '_bemi_row_trigger_%'
+                            WHERE schemaname NOT IN ('information_schema', 'pg_catalog') AND trigger_name IS NULL
+                            GROUP BY schemaname, tablename
                         LOOP
-                        EXECUTE format(
-                            'CREATE OR REPLACE TRIGGER _bemi_row_trigger_%s
-                            BEFORE INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW
-                            EXECUTE FUNCTION _bemi_row_trigger_func()',
-                            current_tablename, current_tablename
-                        );
+                            EXECUTE format(
+                            'CREATE OR REPLACE TRIGGER _bemi_row_trigger_%s_%s
+                            BEFORE INSERT OR UPDATE OR DELETE ON %I.%I FOR EACH ROW
+                            EXECUTE FUNCTION public._bemi_row_trigger_func()',
+                            replace(current_tablename, '-', '_'), replace(current_tablename, '-', '_'), current_schemaname, current_tablename
+                            );
                         END LOOP;
+                    EXCEPTION WHEN insufficient_privilege THEN
+                        RAISE NOTICE '(%) %, skipping', SQLSTATE, SQLERRM;
                     END;
-                    $$ LANGUAGE plpgsql;
+                    $$ LANGUAGE plpgsql
+                    SET search_path = '';
 
-                    CALL _bemi_create_triggers();
+                    CALL public._bemi_create_triggers();
 
-                    CREATE OR REPLACE FUNCTION _bemi_create_table_trigger_func()
+                    CREATE OR REPLACE FUNCTION public._bemi_create_table_trigger_func()
                         RETURNS event_trigger
                     AS $$
                     BEGIN
-                        CALL _bemi_create_triggers();
+                        CALL public._bemi_create_triggers();
                     END
-                    $$ LANGUAGE plpgsql;
+                    $$ LANGUAGE plpgsql
+                    SET search_path = '';
 
                     DO $$
                     BEGIN
                         DROP EVENT TRIGGER IF EXISTS _bemi_create_table_trigger;
-                        CREATE EVENT TRIGGER _bemi_create_table_trigger ON ddl_command_end WHEN TAG IN ('CREATE TABLE') EXECUTE FUNCTION _bemi_create_table_trigger_func();
+                        CREATE EVENT TRIGGER _bemi_create_table_trigger ON ddl_command_end WHEN TAG IN ('CREATE TABLE') EXECUTE FUNCTION public._bemi_create_table_trigger_func();
                     EXCEPTION WHEN insufficient_privilege THEN
-                        RAISE NOTICE 'Please execute "CALL _bemi_create_triggers();" manually after adding new tables you want to track. (%) %.', SQLSTATE, SQLERRM;
+                        RAISE NOTICE 'Please execute "CALL public._bemi_create_triggers();" manually after adding new tables you want to track. (%) %.', SQLSTATE, SQLERRM;
                     END
                     $$ LANGUAGE plpgsql;
                 """
@@ -96,9 +105,9 @@ class Bemi:
             text(
                 """
                     DROP EVENT TRIGGER _bemi_create_table_trigger;
-                    DROP FUNCTION _bemi_create_table_trigger_func;
-                    DROP PROCEDURE _bemi_create_triggers;
-                    DROP FUNCTION _bemi_row_trigger_func CASCADE;
+                    DROP FUNCTION public._bemi_create_table_trigger_func;
+                    DROP PROCEDURE public._bemi_create_triggers;
+                    DROP FUNCTION public._bemi_row_trigger_func CASCADE;
                 """
             )
         )
